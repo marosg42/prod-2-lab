@@ -31,7 +31,7 @@ remove_applications = [
 
 reduce_application_machines = ["vault"]
 
-dont_reduce_num_units = ["ceph-mon", "ceph-osd", "neutron-gateway", "nova-compute-kvm", "mysql-innodb-cluster"]
+dont_reduce_num_units = ["ceph-mon", "ceph-osd", "neutron-gateway", "nova-compute-kvm", "mysql-innodb-cluster", "ovn-central"]
 special_cases = ["memcached", "vault"]
 
 
