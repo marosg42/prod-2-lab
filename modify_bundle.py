@@ -127,6 +127,26 @@ def fix_nova_compute(bundle, charm="nova-compute-kvm"):
     return bundle
 
 
+def fix_data_port(bundle, charm="neutron-gateway"):
+    print(f"Fixing {charm}")
+    if charm not in bundle["applications"]:
+        return bundle
+    opt = bundle["applications"][charm]["options"]
+    if "data-port" in opt:
+        opt["data-port"] = "br-data:ens4"
+    return bundle
+
+
+def fix_bridge_interface_mappings(bundle, charm="ovn-chassis"):
+    print(f"Fixing {charm}")
+    if charm not in bundle["applications"]:
+        return bundle
+    opt = bundle["applications"][charm]["options"]
+    if "bridge-interface-mappings" in opt:
+        opt["bridge-interface-mappings"] = "br-data:ens4"
+    return bundle
+
+
 with open(sys.argv[1]) as file:
     #bundle = yaml.load(file, Loader=yaml.FullLoader)
     bundle = yaml.load(file)
@@ -141,6 +161,9 @@ with open(sys.argv[1]) as file:
     bundle = modify_hacluster(bundle)
     bundle = reduce_num_units(bundle, dont_reduce_num_units, special_cases)
     bundle = fix_nova_compute(bundle)
+    bundle = fix_data_port(bundle)
+    bundle = fix_bridge_interface_mappings(bundle, charm="ovn-chassis")
+    bundle = fix_bridge_interface_mappings(bundle, charm="octavia-ovn-chassis")
 
 with open(sys.argv[2], "w") as outfile:
     yaml.dump(bundle, outfile)
