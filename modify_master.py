@@ -7,6 +7,7 @@ def get_layer_number(master, layer_name):
     for n, layer in enumerate(master['layers']):
         if layer_name == layer['name']:
             return n
+    return -1
 
 
 with open(sys.argv[1]) as file:
@@ -18,8 +19,12 @@ with open(sys.argv[1]) as file:
     master['layers'][1]['config']['maas_config']['upstream_dns'] = "10.244.40.1"
     del master['layers'][get_layer_number(master, 'juju_maas_controller')]['config']['ha']
     del master['layers'][get_layer_number(master, 'juju_maas_controller')]['config']['ha_timeout']
-    del master['layers'][get_layer_number(master, 'juju_maas_controller_bundle')]
-    del master['layers'][get_layer_number(master, 'juju_openstack_controller_bundle')]
+    layer_number = get_layer_number(master, 'juju_maas_controller_bundle')
+    if layer_number != -1:
+        del master['layers'][layer_number]
+    layer_number = get_layer_number(master, 'juju_openstack_controller_bundle')
+    if layer_number != -1:
+        del master['layers'][layer_number]
 
 with open(sys.argv[2], 'w') as outfile:
     yaml.dump(master, outfile)

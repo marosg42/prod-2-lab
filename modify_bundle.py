@@ -6,6 +6,9 @@ import re
 import random
 
 remove_applications = [
+    "apache2",
+    "apache",
+    "mongodb",
     "grafana",
     "nagios",
     "elastic",
@@ -146,7 +149,7 @@ def fix_bridge_interface_mappings(bundle, charm="ovn-chassis"):
         opt["bridge-interface-mappings"] = "br-data:ens4"
     return bundle
 
-
+k8s = True if len(sys.argv) == 4 else False
 with open(sys.argv[1]) as file:
     #bundle = yaml.load(file, Loader=yaml.FullLoader)
     bundle = yaml.load(file)
@@ -160,7 +163,8 @@ with open(sys.argv[1]) as file:
 
     bundle = modify_hacluster(bundle)
     bundle = reduce_num_units(bundle, dont_reduce_num_units, special_cases)
-    bundle = fix_nova_compute(bundle)
+    if not k8s:
+        bundle = fix_nova_compute(bundle)
     bundle = fix_data_port(bundle)
     bundle = fix_bridge_interface_mappings(bundle, charm="ovn-chassis")
     bundle = fix_bridge_interface_mappings(bundle, charm="octavia-ovn-chassis")
