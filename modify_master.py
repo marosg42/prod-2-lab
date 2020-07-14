@@ -9,9 +9,13 @@ def get_layer_number(master, layer_name):
             return n
     return -1
 
+def remove_layer(master, layer_name):
+    layer_number = get_layer_number(master, layer_name)
+    if layer_number != -1:
+        del master['layers'][layer_number]
+
 
 with open(sys.argv[1]) as file:
-    #master = yaml.load(file, Loader=yaml.FullLoader)
     master = yaml.load(file)
     tweaks = master['layers'][get_layer_number(master, 'maas')]['config']['tweaks']
     tweaks.extend(['nomaasha', 'nopgha', 'nojujuha'])
@@ -19,12 +23,10 @@ with open(sys.argv[1]) as file:
     master['layers'][1]['config']['maas_config']['upstream_dns'] = "10.244.40.1"
     del master['layers'][get_layer_number(master, 'juju_maas_controller')]['config']['ha']
     del master['layers'][get_layer_number(master, 'juju_maas_controller')]['config']['ha_timeout']
-    layer_number = get_layer_number(master, 'juju_maas_controller_bundle')
-    if layer_number != -1:
-        del master['layers'][layer_number]
-    layer_number = get_layer_number(master, 'juju_openstack_controller_bundle')
-    if layer_number != -1:
-        del master['layers'][layer_number]
+    remove_layer(master, 'juju_maas_controller_bundle')
+    remove_layer(master, 'juju_openstack_controller_bundle')
+    remove_layer(master, 'lma')
+    remove_layer(master, 'lmacmr')
 
 with open(sys.argv[2], 'w') as outfile:
     yaml.dump(master, outfile)
