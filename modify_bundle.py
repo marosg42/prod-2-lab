@@ -34,7 +34,14 @@ remove_applications = [
 
 reduce_application_machines = ["vault"]
 
-dont_reduce_num_units = ["ceph-mon", "ceph-osd", "neutron-gateway", "nova-compute-kvm", "mysql-innodb-cluster", "ovn-central"]
+dont_reduce_num_units = [
+    "ceph-mon",
+    "ceph-osd",
+    "neutron-gateway",
+    "nova-compute-kvm",
+    "mysql-innodb-cluster",
+    "ovn-central",
+]
 special_cases = ["memcached", "vault"]
 
 
@@ -149,9 +156,10 @@ def fix_bridge_interface_mappings(bundle, charm="ovn-chassis"):
         opt["bridge-interface-mappings"] = "br-data:ens4"
     return bundle
 
+
 k8s = True if len(sys.argv) == 4 else False
 with open(sys.argv[1]) as file:
-    #bundle = yaml.load(file, Loader=yaml.FullLoader)
+    # bundle = yaml.load(file, Loader=yaml.FullLoader)
     bundle = yaml.load(file)
 
     for app in remove_applications:
