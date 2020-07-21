@@ -4,7 +4,8 @@
 # $3 outdir
 
 set -e
-cp -r $2 $3
+# copy content of $2/ into existing $3 without top level dirname
+cp -r $2/* $3/
 mkdir -p $3/generated/maas
 
 COPY_FROM_LAB="bucketsconfig.yaml hosts.yaml nodes.yaml"
