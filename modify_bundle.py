@@ -157,6 +157,16 @@ def fix_bridge_interface_mappings(bundle, charm="ovn-chassis"):
     return bundle
 
 
+def fix_designate_bind_forwarders(bundle, charm="designate-bind"):
+    print(f"Fixing {charm}")
+    if charm not in bundle["applications"]:
+        return bundle
+    opt = bundle["applications"][charm]["options"]
+    if "forwarders" in opt:
+        opt["forwarders"] = "10.244.40.30"
+    return bundle
+
+
 k8s = True if len(sys.argv) == 4 else False
 with open(sys.argv[1]) as file:
     # bundle = yaml.load(file, Loader=yaml.FullLoader)
@@ -176,6 +186,7 @@ with open(sys.argv[1]) as file:
     bundle = fix_data_port(bundle)
     bundle = fix_bridge_interface_mappings(bundle, charm="ovn-chassis")
     bundle = fix_bridge_interface_mappings(bundle, charm="octavia-ovn-chassis")
+    bundle = fix_designate_bind_forwarders(bundle, charm="designate-bind")
 
 with open(sys.argv[2], "w") as outfile:
     yaml.dump(bundle, outfile)
