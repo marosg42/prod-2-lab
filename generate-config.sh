@@ -8,8 +8,8 @@ set -e
 cp -r $2/* $3/
 mkdir -p $3/generated/maas
 
+# copy fcelab specific files
 COPY_FROM_LAB="bucketsconfig.yaml hosts.yaml nodes.yaml"
-
 for i in $COPY_FROM_LAB ; do
     cp $1/config/$i $3/config/
 done
@@ -25,5 +25,11 @@ then
 else
     ./modify_bundle.py $2/config/bundle.yaml $3/config/bundle.yaml
 fi
+
+# modify rally files
+sed  -i "s/times:.*$/times: 1/" $3/config/rally/*
+sed  -i "s/concurrency:.*$/concurrency: 1/" $3/config/rally/*
+sed  -i "s/users_per_tenant:.*$/users_per_tenant: 1/" $3/config/rally/*
+sed  -i "s/tenants:.*$/tenants: 1/" $3/config/rally/*
 
 set +e
