@@ -35,4 +35,4 @@ with open(sys.argv[1]) as file:
     remove_layer(master, "lmacmr")
 
 with open(sys.argv[2], "w") as outfile:
-    yaml.dump(master, outfile)
+    yaml.dump(master, outfile,  default_flow_style=False)
