@@ -189,4 +189,4 @@ with open(sys.argv[1]) as file:
     bundle = fix_designate_bind_forwarders(bundle, charm="designate-bind")
 
 with open(sys.argv[2], "w") as outfile:
-    yaml.dump(bundle, outfile,  default_flow_style=False)
+    yaml.dump(bundle, outfile, default_flow_style=False)
