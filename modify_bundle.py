@@ -224,7 +224,7 @@ def fix_cluster_size(placement, charm):
 
 
 def fix_interface(master):
-    print(f"Fixing network interface for OVS/OVN")
+    print("Fixing network interface for OVS/OVN")
     feature = get_layer_bb_feature(["ovs", "ovn"])
     if feature is None:
         return master
