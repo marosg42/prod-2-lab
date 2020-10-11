@@ -23,7 +23,8 @@ if [ $# -eq 4 ] && [ $4 == 'k8s' ]; then
     # todo
     ./modify_bundle.py $2/config/kubernetes_bundle.yaml $3/config/kubernetes_bundle.yaml k8s
 else
-    ./modify_bundle.py $2/config/master.yaml $3/config/master.yaml $2/config/bundle.yaml $3/config/bundle.yaml $2/config/overlay-placement.yaml $3/config/overlay-placement.yaml
+    # use output from modify_master as input
+    ./modify_bundle.py $3/config/master.yaml $3/config/master.yaml $2/config/bundle.yaml $3/config/bundle.yaml $2/config/overlay-placement.yaml $3/config/overlay-placement.yaml
 fi
 
 # modify rally files
