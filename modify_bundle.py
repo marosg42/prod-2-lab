@@ -171,6 +171,10 @@ def fix_nova_compute(bundle, master, placement, bb, charm="nova-compute-kvm"):
             charm
         ].get("options", {})
         placement["applications"]["nova-compute"]["options"]["cpu-mode"] = "none"
+        placement["applications"][charm]["options"] = placement["applications"][
+            charm
+        ].get("options", {})
+        placement["applications"]["nova-compute"]["options"]["reserved-host-memory"] = 0
     else:
         nova = bundle["applications"][charm]["options"]
         if "reserved-host-memory" in nova:
