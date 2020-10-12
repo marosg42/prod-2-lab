@@ -52,7 +52,7 @@ def get_layer_number(master, layer_name):
             return n
 
 
-def get_layer_bb_feature(feature_names, layer_name="openstack"):
+def get_layer_bb_feature(master, feature_names, layer_name="openstack"):
     layer = get_layer_number(master, layer_name)
     feature = None
     for name in feature_names:
@@ -115,7 +115,7 @@ def remove_application_from_relations(bundle, app):
 
 def modify_hacluster(bundle, master, bb):
     if bb:
-        feature = get_layer_bb_feature(["ha"])
+        feature = get_layer_bb_feature(master, ["ha"])
         feature["options"]["ha_count"] = 1
     else:
         apps = bundle["applications"]
@@ -159,7 +159,7 @@ def fix_nova_compute(bundle, master, placement, bb, charm="nova-compute-kvm"):
         charm = "nova-compute"
     print(f"Fixing {charm}")
     if bb:
-        feature = get_layer_bb_feature(["openstack"])
+        feature = get_layer_bb_feature(master, ["openstack"])
         if feature is None:
             return bundle, master
         opts = feature["options"]
@@ -205,7 +205,7 @@ def fix_bridge_interface_mappings(bundle, charm="ovn-chassis"):
 def fix_designate_bind_forwarders(bundle, master, bb, charm="designate-bind"):
     print(f"Fixing {charm}")
     if bb:
-        feature = get_layer_bb_feature(["openstack"])
+        feature = get_layer_bb_feature(master, ["openstack"])
         if feature is not None:
             opts = feature["options"]
             opts["designate-bind_forwarders"] = "10.244.40.30"
@@ -230,7 +230,7 @@ def fix_cluster_size(placement, charm):
 
 def fix_interface(master):
     print("Fixing network interface for OVS/OVN")
-    feature = get_layer_bb_feature(["ovs", "ovn"])
+    feature = get_layer_bb_feature(master, ["ovs", "ovn"])
     if feature is None:
         return master
     opts = feature["options"]
