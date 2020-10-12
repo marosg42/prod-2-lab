@@ -154,7 +154,9 @@ def reduce_num_units(bundle, placement, bb, dont_reduce, special):
     return bundle, placement
 
 
-def fix_nova_compute(bundle, master, bb, charm="nova-compute-kvm"):
+def fix_nova_compute(bundle, master, placement, bb, charm="nova-compute-kvm"):
+    if bb:
+        charm = "nova-compute"
     print(f"Fixing {charm}")
     if bb:
         feature = get_layer_bb_feature(["openstack"])
@@ -165,7 +167,10 @@ def fix_nova_compute(bundle, master, bb, charm="nova-compute-kvm"):
             del opts["reserved-host-memory"]
         if "cpu-model" in opts:
             del opts["cpu-model"]
-        opts["cpu-mode"] = "none"
+        placement["applications"][charm]["options"] = placement["applications"][
+            charm
+        ].get("options", {})
+        placement["applications"]["nova-compute"]["options"]["cpu-mode"] = "none"
     else:
         nova = bundle["applications"][charm]["options"]
         if "reserved-host-memory" in nova:
@@ -174,7 +179,7 @@ def fix_nova_compute(bundle, master, bb, charm="nova-compute-kvm"):
             del nova["cpu-model"]
         if "cpu-mode" in nova:
             del nova["cpu-mode"]
-    return bundle, master
+    return bundle, master, placement
 
 
 def fix_data_port(bundle, charm="neutron-gateway"):
@@ -270,7 +275,7 @@ if __name__ == "__main__":
         placement = fix_cluster_size(placement, "rabbitmq-server")
 
     if not k8s:
-        bundle, master = fix_nova_compute(bundle, master, bb)
+        bundle, master, placement = fix_nova_compute(bundle, master, placement, bb)
 
     if not bb:
         bundle = fix_data_port(bundle)
