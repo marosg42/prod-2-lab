@@ -251,16 +251,19 @@ if __name__ == "__main__":
     input_placement = sys.argv[5]
     output_placement = sys.argv[6]
 
-    master = yaml.load(open(input_master), Loader=yaml.FullLoader)
+    # master = yaml.load(open(input_master), Loader=yaml.FullLoader)
+    master = yaml.load(open(input_master))
 
     openstack = get_layer_number(master, "openstack")
     bb = master["layers"][openstack]["config"].get("build_bundle", False)
 
     if bb:
-        placement = yaml.load(open(input_placement), Loader=yaml.FullLoader)
+        # placement = yaml.load(open(input_placement), Loader=yaml.FullLoader)
+        placement = yaml.load(open(input_placement))
         bundle = None
     else:
-        bundle = yaml.load(open(input_bundle), Loader=yaml.FullLoader)
+        # bundle = yaml.load(open(input_bundle), Loader=yaml.FullLoader)
+        bundle = yaml.load(open(input_bundle))
         placement = None
 
     if not bb:
