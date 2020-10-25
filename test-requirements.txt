@@ -1,0 +1,6 @@
+# Test-only libs
+coverage
+nose
+mock
+black
+PyYAML
