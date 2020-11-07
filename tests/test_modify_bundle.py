@@ -80,6 +80,24 @@ class TestModifyBundle(unittest.TestCase):
         ret = mb.reduce_it("vault", apps["vault"], special_cases)
         self.assertEqual(ret, {"num_units": 1, "to": [15]})
 
+    def test_is_using_bundle_builder(self):
+        ret = mb.is_using_bundle_builder(self.master_bb)
+        self.assertEqual(ret, True)
+        ret = mb.is_using_bundle_builder(self.master_not_bb)
+        self.assertEqual(ret, False)
+
+    @patch("prod2lab.modify_bundle.is_using_bundle_builder")
+    def test_is_using_automatic_placement(self, mock_bb):
+        mock_bb.return_value = True
+        ret = mb.is_using_automatic_placement(self.master_bb)
+        self.assertEqual(ret, False)
+        mock_bb.return_value = True
+        ret = mb.is_using_automatic_placement(self.master_bb_ap)
+        self.assertEqual(ret, True)
+        mock_bb.return_value = False
+        ret = mb.is_using_automatic_placement(self.master_bb)
+        self.assertEqual(ret, False)
+
     @property
     def master_bb(self):
         return {
@@ -182,4 +200,103 @@ class TestModifyBundle(unittest.TestCase):
                 "etcd": {"to": ["lxd:1001", "lxd:1003", "lxd:1005"]},
                 "vault": {"to": [15, 16, 17]},
             },
+        }
+
+    @property
+    def master_not_bb(self):
+        return {
+            "project": {},
+            "layers": [
+                {"name": "baremetal"},
+                {
+                    "name": "maas",
+                    "type": "maas",
+                    "parent": "baremetal",
+                    "config": {
+                        "tweaks": ["nobond", "nobridge"],
+                        "maas_vip": "1.2.3.4",
+                        "postgresql_vip": "1.2.3.5",
+                        "maas_config": {
+                            "dnssec_validation": "no",
+                            "upstream_dns": "1.2.3.6",
+                        },
+                    },
+                },
+                {
+                    "name": "juju_maas_controller",
+                },
+                {
+                    "name": "openstack",
+                    "type": "openstack",
+                    "parent": "juju_maas_controller",
+                    "features": [
+                        {
+                            "name": "openstack",
+                            "options": {
+                                "designate-bind_forwarders": "1.2.3.7",
+                            },
+                        },
+                        {"name": "ha", "options": {"ha_count": 3}},
+                        {"name": "ovn", "options": {"data-port": "br-data:eth1"}},
+                    ],
+                    "config": {},
+                },
+                {"name": "lma"},
+                {"name": "lmacmr"},
+                {
+                    "name": "juju_openstack_controller",
+                },
+                {"name": "kubernetes"},
+            ],
+        }
+
+    @property
+    def master_bb_ap(self):
+        return {
+            "project": {},
+            "layers": [
+                {"name": "baremetal"},
+                {
+                    "name": "maas",
+                    "type": "maas",
+                    "parent": "baremetal",
+                    "config": {
+                        "tweaks": ["nobond", "nobridge"],
+                        "maas_vip": "1.2.3.4",
+                        "postgresql_vip": "1.2.3.5",
+                        "maas_config": {
+                            "dnssec_validation": "no",
+                            "upstream_dns": "1.2.3.6",
+                        },
+                    },
+                },
+                {
+                    "name": "juju_maas_controller",
+                },
+                {
+                    "name": "openstack",
+                    "type": "openstack",
+                    "parent": "juju_maas_controller",
+                    "features": [
+                        {
+                            "name": "openstack",
+                            "options": {
+                                "designate-bind_forwarders": "1.2.3.7",
+                            },
+                        },
+                        {"name": "ha", "options": {"ha_count": 3}},
+                        {"name": "ovn", "options": {"data-port": "br-data:eth1"}},
+                        {"name": "automatic-placement"},
+                    ],
+                    "config": {
+                        "build_bundle": True,
+                    },
+                },
+                {"name": "lma"},
+                {"name": "lmacmr"},
+                {
+                    "name": "juju_openstack_controller",
+                },
+                {"name": "kubernetes"},
+            ],
         }

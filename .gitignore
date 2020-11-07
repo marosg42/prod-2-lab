@@ -1,0 +1,7 @@
+*swp
+*pyc
+.coverage
+.tox
+venv
+.vscode
+cover/

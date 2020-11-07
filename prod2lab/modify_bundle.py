@@ -4,6 +4,7 @@ import sys
 import yaml
 import re
 import random
+import os
 
 remove_applications = [
     "apache2",
@@ -154,7 +155,7 @@ def reduce_num_units(bundle, placement, bb, dont_reduce, special):
     return bundle, placement
 
 
-def fix_nova_compute(bundle, master, placement, bb, charm="nova-compute-kvm"):
+def fix_nova_compute(bundle, master, placement, bb, ap, charm="nova-compute-kvm"):
     if bb:
         charm = "nova-compute"
     print(f"Fixing {charm}")
@@ -167,14 +168,17 @@ def fix_nova_compute(bundle, master, placement, bb, charm="nova-compute-kvm"):
             del opts["reserved-host-memory"]
         if "cpu-model" in opts:
             del opts["cpu-model"]
-        placement["applications"][charm]["options"] = placement["applications"][
-            charm
-        ].get("options", {})
-        placement["applications"]["nova-compute"]["options"]["cpu-mode"] = "none"
-        placement["applications"][charm]["options"] = placement["applications"][
-            charm
-        ].get("options", {})
-        placement["applications"]["nova-compute"]["options"]["reserved-host-memory"] = 0
+        if not ap:
+            placement["applications"][charm]["options"] = placement["applications"][
+                charm
+            ].get("options", {})
+            placement["applications"]["nova-compute"]["options"]["cpu-mode"] = "none"
+            placement["applications"][charm]["options"] = placement["applications"][
+                charm
+            ].get("options", {})
+            placement["applications"]["nova-compute"]["options"][
+                "reserved-host-memory"
+            ] = 0
     else:
         nova = bundle["applications"][charm]["options"]
         if "reserved-host-memory" in nova:
@@ -242,6 +246,22 @@ def fix_interface(master):
     return master
 
 
+def is_using_bundle_builder(master):
+    openstack = get_layer_number(master, "openstack")
+    return master["layers"][openstack]["config"].get("build_bundle", False)
+
+
+def is_using_automatic_placement(master):
+    if not is_using_bundle_builder(master):
+        return False
+    openstack = get_layer_number(master, "openstack")
+    return (
+        True
+        if {"name": "automatic-placement"} in master["layers"][openstack]["features"]
+        else False
+    )
+
+
 if __name__ == "__main__":
     k8s = True if len(sys.argv) == 8 else False
     input_master = sys.argv[1]
@@ -254,12 +274,23 @@ if __name__ == "__main__":
     # master = yaml.load(open(input_master), Loader=yaml.FullLoader)
     master = yaml.load(open(input_master))
 
-    openstack = get_layer_number(master, "openstack")
-    bb = master["layers"][openstack]["config"].get("build_bundle", False)
+    bb = is_using_bundle_builder(master)
+    ap = is_using_automatic_placement(master)
+
+    if bb and ap:
+        EXTRA_OVERLAY = "overlay-openstack-prod2lab.yaml"
+        output_p2l_overlay_output = os.path.join(
+            os.path.dirname(output_master), EXTRA_OVERLAY
+        )
+        temp = {"applications": {"nova-compute": {"options": {"cpu-mode": "none"}}}}
+        with open(output_p2l_overlay_output, "w") as outfile:
+            yaml.dump(temp, outfile, default_flow_style=False)
+        openstack = get_layer_number(master, "openstack")
+        master["layers"][openstack]["config"]["bundles"].append(EXTRA_OVERLAY)
 
     if bb:
         # placement = yaml.load(open(input_placement), Loader=yaml.FullLoader)
-        placement = yaml.load(open(input_placement))
+        placement = None if ap else yaml.load(open(input_placement))
         bundle = None
     else:
         # bundle = yaml.load(open(input_bundle), Loader=yaml.FullLoader)
@@ -271,18 +302,24 @@ if __name__ == "__main__":
             bundle = remove_application_from_machines(bundle, app)
             bundle = remove_application_from_applications(bundle, app)
             bundle = remove_application_from_relations(bundle, app)
-    for app in reduce_application_machines:
-        bundle, placement = reduce_machines(bundle, placement, app, bb)
+
+    if not ap:
+        for app in reduce_application_machines:
+            bundle, placement = reduce_machines(bundle, placement, app, bb)
+
     bundle, master = modify_hacluster(bundle, master, bb)
-    bundle, placement = reduce_num_units(
-        bundle, placement, bb, dont_reduce_num_units, special_cases
-    )
-    if bb:
+
+    if not ap:
+        bundle, placement = reduce_num_units(
+            bundle, placement, bb, dont_reduce_num_units, special_cases
+        )
+
+    if bb and not ap:
         placement = fix_cluster_size(placement, "mysql")
         placement = fix_cluster_size(placement, "rabbitmq-server")
 
     if not k8s:
-        bundle, master, placement = fix_nova_compute(bundle, master, placement, bb)
+        bundle, master, placement = fix_nova_compute(bundle, master, placement, bb, ap)
 
     if not bb:
         bundle = fix_data_port(bundle)
@@ -290,6 +327,7 @@ if __name__ == "__main__":
         bundle = fix_bridge_interface_mappings(bundle, charm="octavia-ovn-chassis")
     else:
         master = fix_interface(master)
+
     bundle, master = fix_designate_bind_forwarders(
         bundle, master, bb, charm="designate-bind"
     )
@@ -297,8 +335,9 @@ if __name__ == "__main__":
     if bb:
         with open(output_master, "w") as outfile:
             yaml.dump(master, outfile, default_flow_style=False)
-        with open(output_placement, "w") as outfile:
-            yaml.dump(placement, outfile, default_flow_style=False)
+        if not ap:
+            with open(output_placement, "w") as outfile:
+                yaml.dump(placement, outfile, default_flow_style=False)
     else:
         with open(output_bundle, "w") as outfile:
             yaml.dump(bundle, outfile, default_flow_style=False)
