@@ -173,9 +173,6 @@ def fix_nova_compute(bundle, master, placement, bb, ap, charm="nova-compute-kvm"
                 charm
             ].get("options", {})
             placement["applications"]["nova-compute"]["options"]["cpu-mode"] = "none"
-            placement["applications"][charm]["options"] = placement["applications"][
-                charm
-            ].get("options", {})
             placement["applications"]["nova-compute"]["options"][
                 "reserved-host-memory"
             ] = 0
@@ -282,7 +279,13 @@ if __name__ == "__main__":
         output_p2l_overlay_output = os.path.join(
             os.path.dirname(output_master), EXTRA_OVERLAY
         )
-        temp = {"applications": {"nova-compute": {"options": {"cpu-mode": "none"}}}}
+        temp = {
+            "applications": {
+                "nova-compute": {
+                    "options": {"cpu-mode": "none", "reserved-host-memory": 0}
+                }
+            }
+        }
         with open(output_p2l_overlay_output, "w") as outfile:
             yaml.dump(temp, outfile, default_flow_style=False)
         openstack = get_layer_number(master, "openstack")
