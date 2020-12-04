@@ -19,7 +19,7 @@ sed -i "s/9000/1500/" $3/config/networks.yaml
 
 ./modify_master.py $2/config/master.yaml $3/config/master.yaml
 
-if [ $# -eq 4 ] && [ $4 == 'k8s' ]; then
+if  [ ${@: -1} == 'fkb' ]; then
     # todo
     echo "doing nothing for k8s"
     # ./modify_bundle.py $2/config/kubernetes_bundle.yaml $3/config/kubernetes_bundle.yaml k8s
