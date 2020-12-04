@@ -26,12 +26,11 @@ if  [ ${@: -1} == 'fkb' ]; then
 else
     # use output from modify_master as input
     ./modify_bundle.py $3/config/master.yaml $3/config/master.yaml $2/config/bundle.yaml $3/config/bundle.yaml $2/config/overlay-placement.yaml $3/config/overlay-placement.yaml
+    # modify rally files
+    sed -i "s/times:.*$/times: 1/" $3/config/rally/*
+    sed -i "s/concurrency:.*$/concurrency: 1/" $3/config/rally/*
+    sed -i "s/users_per_tenant:.*$/users_per_tenant: 1/" $3/config/rally/*
+    sed -i "s/tenants:.*$/tenants: 1/" $3/config/rally/*
 fi
-
-# modify rally files
-sed -i "s/times:.*$/times: 1/" $3/config/rally/*
-sed -i "s/concurrency:.*$/concurrency: 1/" $3/config/rally/*
-sed -i "s/users_per_tenant:.*$/users_per_tenant: 1/" $3/config/rally/*
-sed -i "s/tenants:.*$/tenants: 1/" $3/config/rally/*
 
 set +e
