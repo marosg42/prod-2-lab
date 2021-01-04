@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+from typing import Tuple
 import yaml
 import re
 import random
@@ -155,7 +156,9 @@ def reduce_num_units(bundle, placement, bb, dont_reduce, special):
     return bundle, placement
 
 
-def fix_nova_compute(bundle, master, placement, bb, ap, charm="nova-compute-kvm"):
+def fix_nova_compute(
+    bundle, master, placement, bb, ap, charm="nova-compute-kvm"
+) -> Tuple:
     if bb:
         charm = "nova-compute"
     print(f"Fixing {charm}")
@@ -207,7 +210,7 @@ def fix_bridge_interface_mappings(bundle, charm="ovn-chassis"):
     return bundle
 
 
-def fix_designate_bind_forwarders(bundle, master, bb, charm="designate-bind"):
+def fix_designate_bind_forwarders(bundle, master, bb, charm="designate-bind") -> Tuple:
     print(f"Fixing {charm}")
     if bb:
         feature = get_layer_bb_feature(master, ["openstack"])
@@ -260,7 +263,9 @@ def is_using_automatic_placement(master):
 
 
 if __name__ == "__main__":
-    k8s = True if len(sys.argv) == 8 else False
+    if sys.argv[-1] == "k8s":
+        raise ValueError("Kubernetes part not implemented yet!")
+
     input_master = sys.argv[1]
     output_master = sys.argv[2]
     input_bundle = sys.argv[3]
@@ -299,8 +304,6 @@ if __name__ == "__main__":
         # bundle = yaml.load(open(input_bundle), Loader=yaml.FullLoader)
         bundle = yaml.load(open(input_bundle))
         placement = None
-
-    if not bb:
         for app in remove_applications:
             bundle = remove_application_from_machines(bundle, app)
             bundle = remove_application_from_applications(bundle, app)
@@ -309,20 +312,15 @@ if __name__ == "__main__":
     if not ap:
         for app in reduce_application_machines:
             bundle, placement = reduce_machines(bundle, placement, app, bb)
-
-    bundle, master = modify_hacluster(bundle, master, bb)
-
-    if not ap:
         bundle, placement = reduce_num_units(
             bundle, placement, bb, dont_reduce_num_units, special_cases
         )
+        if bb:
+            placement = fix_cluster_size(placement, "mysql")
+            placement = fix_cluster_size(placement, "rabbitmq-server")
 
-    if bb and not ap:
-        placement = fix_cluster_size(placement, "mysql")
-        placement = fix_cluster_size(placement, "rabbitmq-server")
-
-    if not k8s:
-        bundle, master, placement = fix_nova_compute(bundle, master, placement, bb, ap)
+    bundle, master = modify_hacluster(bundle, master, bb)
+    bundle, master, placement = fix_nova_compute(bundle, master, placement, bb, ap)
 
     if not bb:
         bundle = fix_data_port(bundle)
@@ -335,6 +333,7 @@ if __name__ == "__main__":
         bundle, master, bb, charm="designate-bind"
     )
 
+    # write to output files
     if bb:
         with open(output_master, "w") as outfile:
             yaml.dump(master, outfile, default_flow_style=False)
