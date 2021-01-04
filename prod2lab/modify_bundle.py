@@ -246,39 +246,22 @@ def fix_interface(master):
     return master
 
 
-def is_using_bundle_builder(master):
-    openstack = get_layer_number(master, "openstack")
-    return master["layers"][openstack]["config"].get("build_bundle", False)
+def is_using_bundle_builder(master, layer_name):
+    layer = get_layer_number(master, layer_name)
+    return master["layers"][layer]["config"].get("build_bundle", False)
 
 
-def is_using_automatic_placement(master):
-    if not is_using_bundle_builder(master):
+def is_using_automatic_placement(master, layer_name):
+    if not is_using_bundle_builder(master, layer_name):
         return False
-    openstack = get_layer_number(master, "openstack")
+    layer = get_layer_number(master, layer_name)
     return (
         True
-        if {"name": "automatic-placement"} in master["layers"][openstack]["features"]
+        if {"name": "automatic-placement"} in master["layers"][layer]["features"]
         else False
     )
 
-
-if __name__ == "__main__":
-    if sys.argv[-1] == "k8s":
-        raise ValueError("Kubernetes part not implemented yet!")
-
-    input_master = sys.argv[1]
-    output_master = sys.argv[2]
-    input_bundle = sys.argv[3]
-    output_bundle = sys.argv[4]
-    input_placement = sys.argv[5]
-    output_placement = sys.argv[6]
-
-    # master = yaml.load(open(input_master), Loader=yaml.FullLoader)
-    master = yaml.load(open(input_master))
-
-    bb = is_using_bundle_builder(master)
-    ap = is_using_automatic_placement(master)
-
+def fix_openstack(bb, ap, master, bundle, placement):
     if bb and ap:
         EXTRA_OVERLAY = "overlay-openstack-prod2lab.yaml"
         output_p2l_overlay_output = os.path.join(
@@ -296,14 +279,7 @@ if __name__ == "__main__":
         openstack = get_layer_number(master, "openstack")
         master["layers"][openstack]["config"]["bundles"].append(EXTRA_OVERLAY)
 
-    if bb:
-        # placement = yaml.load(open(input_placement), Loader=yaml.FullLoader)
-        placement = None if ap else yaml.load(open(input_placement))
-        bundle = None
-    else:
-        # bundle = yaml.load(open(input_bundle), Loader=yaml.FullLoader)
-        bundle = yaml.load(open(input_bundle))
-        placement = None
+    if not bb:
         for app in remove_applications:
             bundle = remove_application_from_machines(bundle, app)
             bundle = remove_application_from_applications(bundle, app)
@@ -332,6 +308,50 @@ if __name__ == "__main__":
     bundle, master = fix_designate_bind_forwarders(
         bundle, master, bb, charm="designate-bind"
     )
+
+    return master, bundle, placement
+
+
+def fix_kubernetes(bb, ap, master, bundle, placement):
+    feature = get_layer_bb_feature(master, ["lma-kubernetes"], layer_name="kubernetes")
+    if feature:
+        master["layers"][get_layer_number(master, "kubernetes")]["features"].remove(feature)
+    feature = get_layer_bb_feature(master, ["nagios"], layer_name="kubernetes")
+    if feature:
+        master["layers"][get_layer_number(master, "kubernetes")]["features"].remove(feature)
+    feature = get_layer_bb_feature(master, ["ha"], layer_name="kubernetes")
+    if feature:
+        feature["options"]["ha_count"] = 1
+    return master, bundle, placement
+
+if __name__ == "__main__":
+    k8s = sys.argv[-1] == "k8s"
+
+    input_master = sys.argv[1]
+    output_master = sys.argv[2]
+    input_bundle = sys.argv[3]
+    output_bundle = sys.argv[4]
+    input_placement = sys.argv[5]
+    output_placement = sys.argv[6]
+
+    master = yaml.load(open(input_master), Loader=yaml.FullLoader)
+
+    bb = is_using_bundle_builder(master, "kubernetes" if k8s else "openstack")
+    ap = is_using_automatic_placement(master, "kubernetes" if k8s else "openstack")
+
+    if bb:
+        placement = None if ap else yaml.load(open(input_placement), Loader=yaml.FullLoader)
+        bundle = None
+    else:
+        bundle = yaml.load(open(input_bundle), Loader=yaml.FullLoader)
+        placement = None
+
+    if k8s:
+        if not bb or not ap:
+            raise ValueError("Bundle builder and automatic placement required in Kubernetes layer, legacy setup not supported!")
+        fix_kubernetes(bb, ap, master, bundle, placement)
+    else:
+        master, bundle, placement = fix_openstack(bb, ap, master, bundle, placement)
 
     # write to output files
     if bb:
