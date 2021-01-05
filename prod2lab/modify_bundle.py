@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import sys
-from typing import Tuple
 import yaml
 import re
 import random
@@ -80,7 +79,6 @@ def remove_application_from_machines(bundle, app):
     for machine in to_delete:
         print(f"Removing {app} from machine {machine}")
         del machines[machine]
-    return bundle
 
 
 def reduce_machines(bundle, placement, app, bb, number=1):
@@ -93,14 +91,12 @@ def reduce_machines(bundle, placement, app, bb, number=1):
     for machine in app_located_in[number:]:
         print(f"Removing {app} from machine {machine}")
         del machines[machine]
-    return bundle, placement
 
 
 def remove_application_from_applications(bundle, app):
     if app in bundle["applications"]:
         print(f"Removing application {app} from the bundle")
         del bundle["applications"][app]
-    return bundle
 
 
 def remove_application_from_relations(bundle, app):
@@ -112,7 +108,6 @@ def remove_application_from_relations(bundle, app):
     for relation in reversed(to_delete):
         print(f"Removing relation {relations[relation]}")
         del relations[relation]
-    return bundle
 
 
 def modify_hacluster(bundle, master, bb):
@@ -126,7 +121,6 @@ def modify_hacluster(bundle, master, bb):
                 print(f"Modify cluster_count to 1 in {app}")
                 data.setdefault("options", {})
                 data["options"]["cluster_count"] = 1
-    return bundle, master
 
 
 def reduce_it(app, data, special):
@@ -142,7 +136,6 @@ def reduce_it(app, data, special):
         if "min-cluster-size" in data["options"]:
             print(f"Setting min-cluster-size to 1 for {app}")
             data["options"]["min-cluster-size"] = 1
-    return data
 
 
 def reduce_num_units(bundle, placement, bb, dont_reduce, special):
@@ -152,20 +145,17 @@ def reduce_num_units(bundle, placement, bb, dont_reduce, special):
         if app in dont_reduce:
             continue
         if data.get("num_units", 0) > 1 or bb:
-            data = reduce_it(app, data, special)
-    return bundle, placement
+            reduce_it(app, data, special)
 
 
-def fix_nova_compute(
-    bundle, master, placement, bb, ap, charm="nova-compute-kvm"
-) -> Tuple:
+def fix_nova_compute(bundle, master, placement, bb, ap, charm="nova-compute-kvm"):
     if bb:
         charm = "nova-compute"
     print(f"Fixing {charm}")
     if bb:
         feature = get_layer_bb_feature(master, ["openstack"])
         if feature is None:
-            return bundle, master
+            return
         opts = feature["options"]
         if "reserved-host-memory" in opts:
             del opts["reserved-host-memory"]
@@ -187,30 +177,27 @@ def fix_nova_compute(
             del nova["cpu-model"]
         if "cpu-mode" in nova:
             del nova["cpu-mode"]
-    return bundle, master, placement
 
 
 def fix_data_port(bundle, charm="neutron-gateway"):
     print(f"Fixing {charm}")
     if charm not in bundle["applications"]:
-        return bundle
+        return
     opt = bundle["applications"][charm]["options"]
     if "data-port" in opt:
         opt["data-port"] = "br-data:ens4"
-    return bundle
 
 
 def fix_bridge_interface_mappings(bundle, charm="ovn-chassis"):
     print(f"Fixing {charm}")
     if charm not in bundle["applications"]:
-        return bundle
+        return
     opt = bundle["applications"][charm]["options"]
     if "bridge-interface-mappings" in opt:
         opt["bridge-interface-mappings"] = "br-data:ens4"
-    return bundle
 
 
-def fix_designate_bind_forwarders(bundle, master, bb, charm="designate-bind") -> Tuple:
+def fix_designate_bind_forwarders(bundle, master, bb, charm="designate-bind"):
     print(f"Fixing {charm}")
     if bb:
         feature = get_layer_bb_feature(master, ["openstack"])
@@ -223,7 +210,6 @@ def fix_designate_bind_forwarders(bundle, master, bb, charm="designate-bind") ->
         opt = bundle["applications"][charm]["options"]
         if "forwarders" in opt:
             opt["forwarders"] = "10.244.40.30"
-    return bundle, master
 
 
 def fix_cluster_size(placement, charm):
@@ -233,17 +219,15 @@ def fix_cluster_size(placement, charm):
             charm
         ].get("options", {})
         placement["applications"][charm]["options"]["min-cluster-size"] = 1
-    return placement
 
 
 def fix_interface(master):
     print("Fixing network interface for OVS/OVN")
     feature = get_layer_bb_feature(master, ["ovs", "ovn"])
     if feature is None:
-        return master
+        return
     opts = feature["options"]
     opts["data-port"] = "br-data:ens4"
-    return master
 
 
 def is_using_bundle_builder(master, layer_name):
@@ -260,6 +244,7 @@ def is_using_automatic_placement(master, layer_name):
         if {"name": "automatic-placement"} in master["layers"][layer]["features"]
         else False
     )
+
 
 def fix_openstack(bb, ap, master, bundle, placement):
     if bb and ap:
@@ -281,48 +266,46 @@ def fix_openstack(bb, ap, master, bundle, placement):
 
     if not bb:
         for app in remove_applications:
-            bundle = remove_application_from_machines(bundle, app)
-            bundle = remove_application_from_applications(bundle, app)
-            bundle = remove_application_from_relations(bundle, app)
+            remove_application_from_machines(bundle, app)
+            remove_application_from_applications(bundle, app)
+            remove_application_from_relations(bundle, app)
 
     if not ap:
         for app in reduce_application_machines:
-            bundle, placement = reduce_machines(bundle, placement, app, bb)
-        bundle, placement = reduce_num_units(
-            bundle, placement, bb, dont_reduce_num_units, special_cases
-        )
+            reduce_machines(bundle, placement, app, bb)
+        reduce_num_units(bundle, placement, bb, dont_reduce_num_units, special_cases)
         if bb:
-            placement = fix_cluster_size(placement, "mysql")
-            placement = fix_cluster_size(placement, "rabbitmq-server")
+            fix_cluster_size(placement, "mysql")
+            fix_cluster_size(placement, "rabbitmq-server")
 
-    bundle, master = modify_hacluster(bundle, master, bb)
-    bundle, master, placement = fix_nova_compute(bundle, master, placement, bb, ap)
+    modify_hacluster(bundle, master, bb)
+    fix_nova_compute(bundle, master, placement, bb, ap)
 
     if not bb:
-        bundle = fix_data_port(bundle)
-        bundle = fix_bridge_interface_mappings(bundle, charm="ovn-chassis")
-        bundle = fix_bridge_interface_mappings(bundle, charm="octavia-ovn-chassis")
+        fix_data_port(bundle)
+        fix_bridge_interface_mappings(bundle, charm="ovn-chassis")
+        fix_bridge_interface_mappings(bundle, charm="octavia-ovn-chassis")
     else:
-        master = fix_interface(master)
+        fix_interface(master)
 
-    bundle, master = fix_designate_bind_forwarders(
-        bundle, master, bb, charm="designate-bind"
-    )
-
-    return master, bundle, placement
+    fix_designate_bind_forwarders(bundle, master, bb, charm="designate-bind")
 
 
-def fix_kubernetes(bb, ap, master, bundle, placement):
+def fix_kubernetes(master, bundle, placement):
     feature = get_layer_bb_feature(master, ["lma-kubernetes"], layer_name="kubernetes")
     if feature:
-        master["layers"][get_layer_number(master, "kubernetes")]["features"].remove(feature)
+        master["layers"][get_layer_number(master, "kubernetes")]["features"].remove(
+            feature
+        )
     feature = get_layer_bb_feature(master, ["nagios"], layer_name="kubernetes")
     if feature:
-        master["layers"][get_layer_number(master, "kubernetes")]["features"].remove(feature)
+        master["layers"][get_layer_number(master, "kubernetes")]["features"].remove(
+            feature
+        )
     feature = get_layer_bb_feature(master, ["ha"], layer_name="kubernetes")
     if feature:
         feature["options"]["ha_count"] = 1
-    return master, bundle, placement
+
 
 if __name__ == "__main__":
     k8s = sys.argv[-1] == "k8s"
@@ -340,7 +323,9 @@ if __name__ == "__main__":
     ap = is_using_automatic_placement(master, "kubernetes" if k8s else "openstack")
 
     if bb:
-        placement = None if ap else yaml.load(open(input_placement), Loader=yaml.FullLoader)
+        placement = (
+            None if ap else yaml.load(open(input_placement), Loader=yaml.FullLoader)
+        )
         bundle = None
     else:
         bundle = yaml.load(open(input_bundle), Loader=yaml.FullLoader)
@@ -348,10 +333,12 @@ if __name__ == "__main__":
 
     if k8s:
         if not bb or not ap:
-            raise ValueError("Bundle builder and automatic placement required in Kubernetes layer, legacy setup not supported!")
-        fix_kubernetes(bb, ap, master, bundle, placement)
+            raise ValueError(
+                "Bundle builder and automatic placement required in Kubernetes layer, legacy setup not supported!"
+            )
+        fix_kubernetes(master, bundle, placement)
     else:
-        master, bundle, placement = fix_openstack(bb, ap, master, bundle, placement)
+        fix_openstack(bb, ap, master, bundle, placement)
 
     # write to output files
     if bb:

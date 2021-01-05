@@ -55,91 +55,101 @@ class TestModifyBundle(unittest.TestCase):
             mock_gf.return_value,
             {"name": "ovn", "options": {"data-port": "br-data:eth1"}},
         )
-        ret = self._get_layer_bb_feature(mb.fix_interface(master), ["ovn"])
+        mb.fix_interface(master)
+        ret = self._get_layer_bb_feature(master, ["ovn"])
         self.assertEqual(ret, {"name": "ovn", "options": {"data-port": "br-data:ens4"}})
 
     def test_reduce_machines_bb(self):
         orig = len(self.placement_bb["machines"])
-        _, ret = mb.reduce_machines({}, self.placement_bb, "vault", True)
-        self.assertEqual(len(ret["machines"]), orig - 2)
+        placement = self.placement_bb
+        mb.reduce_machines({}, placement, "vault", True)
+        self.assertEqual(len(placement["machines"]), orig - 2)
 
     @patch("prod2lab.modify_bundle.get_layer_bb_feature")
     def test_modify_hacluster_bb(self, mock_gf):
         master = self.master_bb
         mock_gf.return_value = self._get_layer_bb_feature(master, ["ha"])
-        _, ret = mb.modify_hacluster({}, master, True)
-        ret = self._get_layer_bb_feature(ret, ["ha"])
+        bundle = {}
+        mb.modify_hacluster(bundle, master, True)
+        ret = self._get_layer_bb_feature(master, ["ha"])
         self.assertEqual(ret, {"name": "ha", "options": {"ha_count": 1}})
 
     def test_reduce_it_bb(self):
         apps = self.placement_bb["applications"]
         # for app, data in apps.items():
-        ret = mb.reduce_it("rabbitmq-server", apps["rabbitmq-server"], mb.special_cases)
-        self.assertEqual(ret["num_units"], 1)
-        ret = mb.reduce_it("vault", apps["vault"], mb.special_cases)
-        self.assertEqual(ret, {"num_units": 1, "to": [15]})
+        mb.reduce_it("rabbitmq-server", apps["rabbitmq-server"], mb.special_cases)
+        self.assertEqual(apps["rabbitmq-server"]["num_units"], 1)
+        mb.reduce_it("vault", apps["vault"], mb.special_cases)
+        self.assertEqual(apps["vault"], {"num_units": 1, "to": [15]})
 
     def test_is_using_bundle_builder(self):
-        ret = mb.is_using_bundle_builder(self.master_bb)
+        layer_name = "openstack"
+        ret = mb.is_using_bundle_builder(self.master_bb, layer_name)
         self.assertEqual(ret, True)
-        ret = mb.is_using_bundle_builder(self.master_not_bb)
+        ret = mb.is_using_bundle_builder(self.master_not_bb, layer_name)
         self.assertEqual(ret, False)
 
     @patch("prod2lab.modify_bundle.is_using_bundle_builder")
     def test_is_using_automatic_placement(self, mock_bb):
+        layer_name = "openstack"
         mock_bb.return_value = True
-        ret = mb.is_using_automatic_placement(self.master_bb)
+        ret = mb.is_using_automatic_placement(self.master_bb, layer_name)
         self.assertEqual(ret, False)
         mock_bb.return_value = True
-        ret = mb.is_using_automatic_placement(self.master_bb_ap)
+        ret = mb.is_using_automatic_placement(self.master_bb_ap, layer_name)
         self.assertEqual(ret, True)
         mock_bb.return_value = False
-        ret = mb.is_using_automatic_placement(self.master_bb)
+        ret = mb.is_using_automatic_placement(self.master_bb, layer_name)
         self.assertEqual(ret, False)
 
     def test_fix_cluster_size(self):
-        ret = mb.fix_cluster_size(self.placement_bb, "rabbitmq-server")
+        placement = self.placement_bb
+        mb.fix_cluster_size(placement, "rabbitmq-server")
         self.assertEqual(
-            1, ret["applications"]["rabbitmq-server"]["options"]["min-cluster-size"]
+            1,
+            placement["applications"]["rabbitmq-server"]["options"]["min-cluster-size"],
         )
 
     def test_fix_nova_compute(self):
-        _, _, ret = mb.fix_nova_compute(
-            None, self.master_bb, self.placement_bb, True, False
+        master = self.master_bb
+        placement = self.placement_bb
+        mb.fix_nova_compute(None, master, placement, True, False)
+        self.assertEqual(
+            placement["applications"]["nova-compute"]["options"]["cpu-mode"], "none"
         )
         self.assertEqual(
-            ret["applications"]["nova-compute"]["options"]["cpu-mode"], "none"
-        )
-        self.assertEqual(
-            ret["applications"]["nova-compute"]["options"]["reserved-host-memory"], 0
-        )
-        ret = mb.fix_nova_compute(
-            None, self.master_bb_ap, self.placement_bb, True, True
+            placement["applications"]["nova-compute"]["options"][
+                "reserved-host-memory"
+            ],
+            0,
         )
 
     def test_fix_designate_bind_forwarders(self):
-        _, ret = mb.fix_designate_bind_forwarders(None, self.master_bb, True)
-        feature = self._get_layer_bb_feature(ret, ["openstack"])
+        master = self.master_bb
+        mb.fix_designate_bind_forwarders(None, master, True)
+        feature = self._get_layer_bb_feature(master, ["openstack"])
         self.assertEqual(
             feature["options"]["designate-bind_forwarders"],
             "10.244.40.30",
         )
-        _, ret = mb.fix_designate_bind_forwarders(None, self.master_bb_ap, True)
-        feature = self._get_layer_bb_feature(ret, ["openstack"])
+        master = self.master_bb_ap
+        mb.fix_designate_bind_forwarders(None, master, True)
+        feature = self._get_layer_bb_feature(master, ["openstack"])
         self.assertEqual(
             feature["options"]["designate-bind_forwarders"],
             "10.244.40.30",
         )
-        ret, _ = mb.fix_designate_bind_forwarders(self.bundle, None, False)
+        bundle = self.bundle
+        mb.fix_designate_bind_forwarders(bundle, None, False)
         self.assertEqual(
-            ret["applications"]["designate-bind"]["options"]["forwarders"],
+            bundle["applications"]["designate-bind"]["options"]["forwarders"],
             "10.244.40.30",
         )
 
     def test_remove_application_from_machines(self):
         bundle = self.bundle
         for app in mb.remove_applications:
-            bundle = mb.remove_application_from_machines(bundle, app)
+            mb.remove_application_from_machines(bundle, app)
         for i in [0, 1, 5, 9, 10]:
             self.assertIn(str(i), self.bundle["machines"])
             self.assertNotIn(str(i), bundle["machines"])
@@ -147,7 +157,7 @@ class TestModifyBundle(unittest.TestCase):
     def test_remove_application_from_applications(self):
         bundle = self.bundle
         for app in mb.remove_applications:
-            bundle = mb.remove_application_from_applications(bundle, app)
+            mb.remove_application_from_applications(bundle, app)
         for app in mb.remove_applications:
             if app in self.bundle["applications"]:
                 self.assertNotIn(app, bundle["applications"])
@@ -155,7 +165,7 @@ class TestModifyBundle(unittest.TestCase):
     def test_remove_application_from_relations(self):
         bundle = self.bundle
         for app in mb.remove_applications:
-            bundle = mb.remove_application_from_relations(bundle, app)
+            mb.remove_application_from_relations(bundle, app)
         self.assertGreater(len(self.bundle["relations"]), 1)
         self.assertEqual(len(bundle["relations"]), 1)
 
