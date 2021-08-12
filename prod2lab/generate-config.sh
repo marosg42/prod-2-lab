@@ -9,7 +9,7 @@ cp -r $2/* $3/
 mkdir -p $3/generated/maas
 
 # copy fcelab specific files
-COPY_FROM_LAB="bucketsconfig.yaml hosts.yaml nodes.yaml"
+COPY_FROM_LAB="bucketsconfig.yaml hosts.yaml nodes.yaml vms.yaml vmsbucketsconfig.yaml"
 for i in $COPY_FROM_LAB; do
     cp $1/config/$i $3/config/
 done
