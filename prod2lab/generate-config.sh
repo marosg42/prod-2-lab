@@ -17,14 +17,8 @@ done
 # change mtu 9000 to 1500
 sed -i "s/9000/1500/" $3/config/networks.yaml
 
-./modify_master.py $2/config/master.yaml $3/config/master.yaml
-
-if  [ ${@: -1} == 'fkb' ]; then
-    # use output from modify_master as input
-    ./modify_bundle.py $3/config/master.yaml $3/config/master.yaml $2/config/bundle.yaml $3/config/bundle.yaml $2/config/overlay-placement.yaml $3/config/overlay-placement.yaml k8s
-else
-    # use output from modify_master as input
-    ./modify_bundle.py $3/config/master.yaml $3/config/master.yaml $2/config/bundle.yaml $3/config/bundle.yaml $2/config/overlay-placement.yaml $3/config/overlay-placement.yaml
+./modify_master.py $2/config/master.yaml $3/config/master.yaml k8s
+if [ ${@: -1} != 'fkb' ]; then
     # modify rally files
     sed -i "s/times:.*$/times: 1/" $3/config/rally/*
     sed -i "s/concurrency:.*$/concurrency: 1/" $3/config/rally/*
