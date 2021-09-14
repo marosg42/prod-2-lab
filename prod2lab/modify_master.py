@@ -91,6 +91,8 @@ def fix_openstack(master):
 
 
 def fix_kubernetes(master):
+    if not get_layer_number(master, "kubernetes"):
+        return
     feature = get_layer_feature(master, ["lma-kubernetes"], layer_name="kubernetes")
     if feature:
         master["layers"][get_layer_number(master, "kubernetes")]["features"].remove(
