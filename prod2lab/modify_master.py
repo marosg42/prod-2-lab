@@ -15,24 +15,35 @@ def get_layer_number(master, layer_name):
 def remove_layer(master, layer_name):
     layer_number = get_layer_number(master, layer_name)
     if layer_number:
+        print(f"Removing layer {layer_name}")
         del master["layers"][layer_number]
 
 
 def get_layer_feature(master, feature_names, layer_name="openstack"):
     layer = get_layer_number(master, layer_name)
+    feature = get_layer_feature_number(master, feature_names, layer_name)
+    if feature is None:
+        return None
+    return master["layers"][layer]["features"][feature]
+
+
+def get_layer_feature_number(master, feature_names, layer_name="openstack"):
+    layer = get_layer_number(master, layer_name)
+    if not layer:
+        return None
     feature = None
     for name in feature_names:
         feature = next(
             (
-                item
-                for item in master["layers"][layer]["features"]
+                n
+                for n, item in enumerate(master["layers"][layer]["features"])
                 if item["name"] == name
             ),
             None,
         )
         if feature is not None:
             return feature
-    return feature
+    return None
 
 
 def modify_hacluster(master):
@@ -90,6 +101,16 @@ def fix_openstack(master):
     fix_designate_bind_forwarders(master)
 
 
+def remove_consume_layers(master, to_remove):
+    for layer in master["layers"]:
+        consume_layers = layer.get("config").get("consume_layers")
+        if consume_layers:
+            for n, cl in enumerate(consume_layers):
+                if to_remove in cl:
+                    print(f"Removing {cl} from consume_layer in {layer['name']}")
+                    del consume_layers[n]
+
+
 def fix_kubernetes(master):
     if not get_layer_number(master, "kubernetes"):
         return
@@ -111,6 +132,28 @@ def fix_kubernetes(master):
         master["layers"][get_layer_number(master, "kubernetes")]["features"].remove(
             feature
         )
+
+
+def remove_lma(master):
+    remove_layer(master, "lma")
+    remove_layer(master, "lmacmr")
+    remove_layer(master, "k8s-lma")
+    remove_consume_layers(master, "lma")
+    for layer_name in ["openstack", "kubernetes"]:
+        feature = get_layer_feature_number(master, ["lma-subordinates"], layer_name)
+        if feature:
+            del master["layers"][get_layer_number(master, layer_name)]["features"][
+                feature
+            ]
+        layer = get_layer_number(master, layer_name)
+        if not layer:
+            continue
+        for n, bundle in enumerate(master["layers"][layer]["config"]["bundles"]):
+            if "lma" in bundle:
+                print(
+                    f"Removing {bundle} from the list of bundles in {layer_name} layer"
+                )
+                del master["layers"][layer]["config"]["bundles"][n]
 
 
 def fix_other_layers(master):
@@ -135,8 +178,7 @@ def fix_other_layers(master):
 
     remove_layer(master, "juju_maas_controller_bundle")
     remove_layer(master, "juju_openstack_controller_bundle")
-    remove_layer(master, "lma")
-    remove_layer(master, "lmacmr")
+    remove_lma(master)
 
 
 if __name__ == "__main__":

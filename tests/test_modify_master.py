@@ -83,6 +83,7 @@ class TestModifyBundle(unittest.TestCase):
         master = self.master
         mm.fix_designate_bind_forwarders(master)
         feature = self._get_layer_feature(master, ["openstack"])
+        print(feature)
         self.assertEqual(
             feature["options"]["designate-bind_forwarders"],
             "10.244.40.30",
